@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Register - Wellness Coach Academy</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230E4331' stroke='%23B8863B' stroke-width='4'/%3E%3Ctext x='32' y='40' font-size='24' text-anchor='middle' fill='%23E3C48A' font-family='Georgia' font-weight='700'%3EW%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+</head>
+<body>
+<header class="hero">
+  <div class="seal">WCA</div>
+  <h1>Wellness Coach Academy</h1>
+  <p>Register your ticket to receive your entry pass.</p>
+  <nav class="tabs" aria-label="Pages">
+    <a class="on" href="index.html" aria-current="page">Register</a>
+    <a href="qr.html">My QR pass</a>
+  </nav>
+</header>
+
+<main class="sheet">
+  <section class="card">
+    <h2>Register your ticket</h2>
+    <p class="lead">Use the number printed on your paper ticket. Fields marked * are required.</p>
+
+    <div class="row">
+      <div class="field"><label for="r-ticket">Ticket No. *</label>
+        <input class="num" id="r-ticket" placeholder="e.g. 4521" inputmode="numeric" maxlength="4" autocomplete="off"></div>
+      <div class="field"><label for="r-hlid">Herbalife ID *</label>
+        <input class="num" id="r-hlid" placeholder="Your ID" autocapitalize="characters" autocomplete="off"></div>
+    </div>
+
+    <div class="field"><label for="r-name">Full name *</label>
+      <input id="r-name" placeholder="As you want it on the pass" autocomplete="name"></div>
+
+    <div class="field"><label for="r-mobile">Mobile number *</label>
+      <input class="num" id="r-mobile" placeholder="10-digit mobile number" inputmode="tel" autocomplete="tel"></div>
+
+    <div class="row">
+      <div class="field"><label for="r-club">Club code <small>(optional)</small></label>
+        <input id="r-club" placeholder="Club code" autocomplete="off"></div>
+      <div class="field"><label for="r-sponsor">Sponsor <small>(optional)</small></label>
+        <input id="r-sponsor" placeholder="Sponsor name" autocomplete="off"></div>
+    </div>
+
+    <div class="field"><label id="lv-label">Level *</label>
+      <button type="button" class="pick" id="lv-field" aria-labelledby="lv-label"><span id="lv-text">Select your level</span><i>&#9662;</i></button>
+      <div class="panel" id="lv-panel"></div>
+      <input type="hidden" id="r-level">
+    </div>
+
+    <button class="btn" id="r-submit">Register</button>
+    <div id="r-msg" aria-live="polite"></div>
+  </section>
+  <p class="note">Registered already? Open <a href="qr.html">My QR pass</a> and enter your mobile number.</p>
+</main>
+
+<script src="common.js"></script>
+<script>
+var field = $('lv-field'), panel = $('lv-panel'), hidden = $('r-level');
+LEVELS.forEach(function (lv) {
+  var b = document.createElement('button');
+  b.type = 'button'; b.className = 'opt'; b.textContent = lv;
+  b.addEventListener('click', function () {
+    hidden.value = lv; $('lv-text').textContent = lv;
+    field.classList.add('has'); field.classList.remove('open'); panel.style.display = 'none';
+    Array.prototype.forEach.call(panel.children, function (c) { c.classList.toggle('on', c === b); });
+  });
+  panel.appendChild(b);
+});
+field.addEventListener('click', function () {
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  var open = panel.style.display === 'block';
+  panel.style.display = open ? 'none' : 'block';
+  field.classList.toggle('open', !open);
+});
+
+$('r-submit').addEventListener('click', async function () {
+  var btn = $('r-submit');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  var res = await registerTicket({
+    ticket: $('r-ticket').value, hlid: $('r-hlid').value, name: $('r-name').value,
+    mobile: $('r-mobile').value, club: $('r-club').value, sponsor: $('r-sponsor').value, level: hidden.value
+  });
+  btn.disabled = false; btn.textContent = 'Register';
+  showMsg('r-msg', res.ok ? 'ok' : 'err', esc(res.msg));
+  if (res.ok) {
+    ['r-ticket', 'r-hlid', 'r-name', 'r-mobile', 'r-club', 'r-sponsor'].forEach(function (id) { $(id).value = ''; });
+    hidden.value = ''; $('lv-text').textContent = 'Select your level'; field.classList.remove('has');
+    Array.prototype.forEach.call(panel.children, function (c) { c.classList.remove('on'); });
+  }
+});
+</script>
+</body>
+</html>

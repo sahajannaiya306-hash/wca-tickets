@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // >>> Replace with YOUR admin email (the one you create in Firebase Authentication) <<<
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email in ['sahajannaiya306@gmail.com'];
+    }
+
+    // One document per ticket. Doc id = ticket number, so a ticket can be registered only once.
+    match /tickets/{ticket} {
+      allow read, update, delete: if isAdmin();
+      allow create: if ticket.matches('^[1-9][0-9]{0,3}$')
+        && int(ticket) <= 7000
+        && request.resource.data.keys().hasOnly(['ticket','hlid','name','mobile','club','sponsor','level','checkedIn','createdAt'])
+        && request.resource.data.keys().hasAll(['ticket','hlid','name','mobile','level','checkedIn','createdAt'])
+        && request.resource.data.ticket == ticket
+        && request.resource.data.hlid is string
+        && request.resource.data.hlid.matches('^[A-Z0-9]{3,20}$')
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 80
+        && request.resource.data.mobile is string
+        && request.resource.data.mobile.matches('^[0-9]{10}$')
+        && request.resource.data.get('club', '') is string && request.resource.data.get('club', '').size() <= 60
+        && request.resource.data.get('sponsor', '') is string && request.resource.data.get('sponsor', '').size() <= 80
+        && request.resource.data.level in ['Associate','Supervisor','World Team','Active World Team','Get Team','Millionaire Team','President Team']
+        && request.resource.data.checkedIn == false
+        && request.resource.data.createdAt == request.time
+        // one mobile = one registration
+        && !exists(/databases/$(database)/documents/mobiles/$(request.resource.data.mobile))
+        && existsAfter(/databases/$(database)/documents/mobiles/$(request.resource.data.mobile))
+        && getAfter(/databases/$(database)/documents/mobiles/$(request.resource.data.mobile)).data.ticket == ticket
+        // public "taken" marker for this ticket
+        && existsAfter(/databases/$(database)/documents/taken/$(ticket))
+        // one Herbalife ID = max 2 registrations (husband + wife)
+        && existsAfter(/databases/$(database)/documents/hlids/$(request.resource.data.hlid))
+        && getAfter(/databases/$(database)/documents/hlids/$(request.resource.data.hlid)).data.count
+           == (exists(/databases/$(database)/documents/hlids/$(request.resource.data.hlid))
+               ? get(/databases/$(database)/documents/hlids/$(request.resource.data.hlid)).data.count : 0) + 1
+        && getAfter(/databases/$(database)/documents/hlids/$(request.resource.data.hlid)).data.count <= 2;
+    }
+
+    // Lookup by mobile number (QR page). Single-document reads only; nobody can list all mobiles.
+    match /mobiles/{mobile} {
+      allow get: if true;
+      allow list, update, delete: if isAdmin();
+      allow create: if mobile.matches('^[0-9]{10}$')
+        && request.resource.data.keys().hasOnly(['ticket','name','hlid','level','club'])
+        && request.resource.data.keys().hasAll(['ticket','name','hlid','level'])
+        && existsAfter(/databases/$(database)/documents/tickets/$(request.resource.data.ticket))
+        && getAfter(/databases/$(database)/documents/tickets/$(request.resource.data.ticket)).data.mobile == mobile
+        && getAfter(/databases/$(database)/documents/tickets/$(request.resource.data.ticket)).data.name == request.resource.data.name
+        && getAfter(/databases/$(database)/documents/tickets/$(request.resource.data.ticket)).data.hlid == request.resource.data.hlid
+        && getAfter(/databases/$(database)/documents/tickets/$(request.resource.data.ticket)).data.level == request.resource.data.level;
+    }
+
+    // Public marker so the form can say "ticket already registered"
+    match /taken/{ticket} {
+      allow get: if true;
+      allow list, update, delete: if isAdmin();
+      allow create: if existsAfter(/databases/$(database)/documents/tickets/$(ticket));
+    }
+
+    // Counter for Herbalife IDs (max 2)
+    match /hlids/{hlid} {
+      allow get: if true;
+      allow list, delete: if isAdmin();
+      allow create: if hlid.matches('^[A-Z0-9]{3,20}$')
+        && request.resource.data.keys().hasOnly(['count','lastTicket'])
+        && request.resource.data.count == 1
+        && existsAfter(/databases/$(database)/documents/tickets/$(request.resource.data.lastTicket))
+        && getAfter(/databases/$(database)/documents/tickets/$(request.resource.data.lastTicket)).data.hlid == hlid;
+      allow update: if isAdmin()
+        || (resource.data.count == 1
+            && request.resource.data.keys().hasOnly(['count','lastTicket'])
+            && request.resource.data.count == 2
+            && existsAfter(/databases/$(database)/documents/tickets/$(request.resource.data.lastTicket))
+            && getAfter(/databases/$(database)/documents/tickets/$(request.resource.data.lastTicket)).data.hlid == hlid);
+    }
+  }
+}

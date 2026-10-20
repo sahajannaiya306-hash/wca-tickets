@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My QR pass - Wellness Coach Academy</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230E4331' stroke='%23B8863B' stroke-width='4'/%3E%3Ctext x='32' y='40' font-size='24' text-anchor='middle' fill='%23E3C48A' font-family='Georgia' font-weight='700'%3EW%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="firebase-config.js"></script>
+</head>
+<body>
+<header class="hero">
+  <div class="seal">WCA</div>
+  <h1>Wellness Coach Academy</h1>
+  <p>Get your entry pass with the mobile number you registered.</p>
+  <nav class="tabs" aria-label="Pages">
+    <a href="index.html">Register</a>
+    <a class="on" href="qr.html" aria-current="page">My QR pass</a>
+  </nav>
+</header>
+
+<main class="sheet">
+  <section class="card">
+    <h2>Find your pass</h2>
+    <p class="lead">Enter the mobile number used at registration.</p>
+    <div class="field" style="margin-top:0"><label for="q-mobile">Mobile number</label>
+      <input class="num" id="q-mobile" placeholder="10-digit mobile number" inputmode="tel" autocomplete="tel"></div>
+    <button class="btn gold" id="q-submit">Show my pass</button>
+    <div id="q-msg" aria-live="polite"></div>
+  </section>
+
+  <section class="pass" id="q-result" style="display:none;">
+    <div class="pass-top"><b>Wellness Coach Academy</b><span>Entry pass</span></div>
+    <div class="pass-body">
+      <div class="qrframe"><i></i><i></i><i></i><i></i><div id="qrholder"></div></div>
+      <div class="scan-hint">Show this code at the entry gate</div>
+      <div class="pass-no" id="d-ticket"></div>
+      <div class="pass-name" id="d-name"></div>
+    </div>
+    <div class="perf"></div>
+    <div class="pass-meta">
+      <div><span>Herbalife ID</span><b id="d-hlid"></b></div>
+      <div><span>Level</span><b id="d-level"></b></div>
+    </div>
+    <div style="padding:0 20px 22px;"><button class="btn" id="q-download" style="margin-top:0;">Download pass</button></div>
+  </section>
+</main>
+
+<script src="common.js"></script>
+<script>
+var current = null;
+
+$('q-submit').addEventListener('click', async function () {
+  var mobile = normMobile($('q-mobile').value);
+  showMsg('q-msg', '', '');
+  $('q-result').style.display = 'none';
+  if (!/^[0-9]{10}$/.test(mobile)) { showMsg('q-msg', 'err', 'Enter a valid 10-digit mobile number.'); return; }
+  var btn = $('q-submit');
+  btn.disabled = true; btn.textContent = 'Searching...';
+  try {
+    var snap = await db.collection('mobiles').doc(mobile).get();
+    if (!snap.exists) showMsg('q-msg', 'err', 'No registration found for this number. Check the number or register first.');
+    else renderQR(snap.data());
+  } catch (e) {
+    showMsg('q-msg', 'err', 'Could not load your pass (' + esc(e && e.code ? e.code : 'error') + '). Check your internet connection and try again.');
+  }
+  btn.disabled = false; btn.textContent = 'Show my pass';
+});
+
+function renderQR(r) {
+  current = r;
+  var holder = $('qrholder');
+  holder.innerHTML = '';
+  if (typeof QRCode === 'undefined') { showMsg('q-msg', 'err', 'The QR library could not load. Check your internet connection and try again.'); return; }
+  new QRCode(holder, { text: String(r.ticket), width: 210, height: 210, colorDark: '#082B20', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+  $('d-ticket').textContent = 'No. ' + r.ticket;
+  $('d-name').textContent = r.name || '';
+  $('d-hlid').textContent = r.hlid || '-';
+  $('d-level').textContent = r.level || '-';
+  $('q-result').style.display = 'block';
+  $('q-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function rr(c, x, y, w, h, rad) {
+  c.beginPath(); c.moveTo(x + rad, y);
+  c.arcTo(x + w, y, x + w, y + h, rad); c.arcTo(x + w, y + h, x, y + h, rad);
+  c.arcTo(x, y + h, x, y, rad); c.arcTo(x, y, x + w, y, rad); c.closePath();
+}
+
+$('q-download').addEventListener('click', function () {
+  var r = current; if (!r) return;
+  var qrCanvas = $('qrholder').querySelector('canvas'); if (!qrCanvas) return;
+  var W = 760, H = 1210;
+  var out = document.createElement('canvas'); out.width = W; out.height = H;
+  var c = out.getContext('2d');
+  c.textAlign = 'center';
+
+  c.fillStyle = '#F7F2E4'; c.fillRect(0, 0, W, H);
+  c.save(); c.shadowColor = 'rgba(8,43,32,0.22)'; c.shadowBlur = 36; c.shadowOffsetY = 12;
+  c.fillStyle = '#fff'; rr(c, 44, 44, W - 88, H - 88, 36); c.fill(); c.restore();
+
+  c.save(); rr(c, 44, 44, W - 88, 200, 36); c.clip();
+  var g = c.createLinearGradient(0, 44, W, 244); g.addColorStop(0, '#082B20'); g.addColorStop(1, '#0E4331');
+  c.fillStyle = g; c.fillRect(44, 44, W - 88, 200);
+  c.fillStyle = '#B8863B'; c.fillRect(44, 236, W - 88, 8);
+  c.restore();
+  c.strokeStyle = '#E3C48A'; c.lineWidth = 3; c.beginPath(); c.arc(W / 2, 112, 33, 0, Math.PI * 2); c.stroke();
+  c.fillStyle = '#E3C48A'; c.font = '700 22px Georgia, serif'; c.fillText('WCA', W / 2, 120);
+  c.fillStyle = '#fff'; c.font = '600 38px Georgia, serif'; c.fillText('Wellness Coach Academy', W / 2, 192);
+  c.fillStyle = 'rgba(255,255,255,0.75)'; c.font = '400 20px Arial, sans-serif'; c.fillText("Entry pass", W / 2, 218);
+
+  var qs = 400, pad = 28, fw = qs + pad * 2, fx = (W - fw) / 2, fy = 290;
+  c.fillStyle = '#fff'; c.strokeStyle = '#DDD5BC'; c.lineWidth = 3;
+  rr(c, fx, fy, fw, fw, 26); c.fill(); c.stroke();
+  c.imageSmoothingEnabled = false;
+  c.drawImage(qrCanvas, fx + pad, fy + pad, qs, qs);
+  c.imageSmoothingEnabled = true;
+  c.strokeStyle = '#B8863B'; c.lineWidth = 8; c.lineCap = 'round'; var L = 46;
+  [[fx, fy, 1, 1], [fx + fw, fy, -1, 1], [fx, fy + fw, 1, -1], [fx + fw, fy + fw, -1, -1]].forEach(function (p) {
+    c.beginPath(); c.moveTo(p[0], p[1] + p[3] * L); c.lineTo(p[0], p[1]); c.lineTo(p[0] + p[2] * L, p[1]); c.stroke();
+  });
+  c.fillStyle = '#667267'; c.font = '400 22px Arial, sans-serif'; c.fillText('Scan at the entry gate', W / 2, fy + fw + 44);
+
+  c.fillStyle = '#082B20'; c.font = '700 62px "Courier New", monospace'; c.fillText('No. ' + r.ticket, W / 2, 905);
+  function fit(t, maxW, px, wt, fam) { c.font = wt + ' ' + px + 'px ' + fam; while (c.measureText(t).width > maxW && px > 20) { px -= 2; c.font = wt + ' ' + px + 'px ' + fam; } }
+  c.fillStyle = '#18221C'; fit(r.name || '', W - 200, 50, '600', 'Georgia, serif'); c.fillText(r.name || '', W / 2, 975);
+
+  c.strokeStyle = '#DDD5BC'; c.lineWidth = 3; c.setLineDash([12, 10]);
+  c.beginPath(); c.moveTo(90, 1016); c.lineTo(W - 90, 1016); c.stroke(); c.setLineDash([]);
+
+  c.fillStyle = '#667267'; fit('Herbalife ID  ' + (r.hlid || ''), W - 200, 28, '500', 'Arial, sans-serif'); c.fillText('Herbalife ID  ' + (r.hlid || ''), W / 2, 1070);
+  c.fillStyle = '#B8863B'; fit(r.level || '', W - 200, 30, '700', 'Arial, sans-serif'); c.fillText(r.level || '', W / 2, 1115);
+
+  var a = document.createElement('a');
+  a.download = 'WCA-pass-' + r.ticket + '.png'; a.href = out.toDataURL('image/png');
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+});
+</script>
+</body>
+</html>
