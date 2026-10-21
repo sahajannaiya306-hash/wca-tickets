@@ -148,6 +148,17 @@ th{background:#F5EFDC; font-weight:600; color:var(--forest-deep);}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
 </head>
 <body>
+<script>
+window.addEventListener('error', function (e) {
+  var d = document.getElementById('js-error');
+  if (!d) {
+    d = document.createElement('div'); d.id = 'js-error';
+    d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99;background:#A63D2A;color:#fff;font:13px/1.4 sans-serif;padding:10px 14px;word-break:break-word;';
+    document.body.appendChild(d);
+  }
+  d.textContent = 'Page error: ' + (e.message || 'unknown') + (e.lineno ? ' (line ' + e.lineno + ')' : '');
+});
+</script>
 <header class="hero">
   <div class="seal">WCA</div>
   <h1 id="hero-title">Wellness Coach Academy</h1>
@@ -449,7 +460,20 @@ function setupLogin(onReady) {
     btn.disabled = true; btn.textContent = 'Signing in...';
     auth.signInWithEmailAndPassword($('login-email').value.trim(), $('login-pass').value)
       .then(function () { showMsg('login-msg', '', ''); })
-      .catch(function () { showMsg('login-msg', 'err', 'Sign-in failed. Check the email and password.'); })
+      .catch(function (e) {
+        var c = e && e.code ? e.code : 'error';
+        var why = {
+          'auth/wrong-password': 'The password is wrong.',
+          'auth/invalid-credential': 'The email or password is wrong, or this email is not added in Firebase Users.',
+          'auth/user-not-found': 'This email is not added in Firebase Authentication > Users.',
+          'auth/invalid-email': 'The email address is not valid.',
+          'auth/operation-not-allowed': 'Email/Password sign-in is not turned on in Firebase Authentication.',
+          'auth/network-request-failed': 'No connection to Firebase. Check the internet connection.',
+          'auth/too-many-requests': 'Too many attempts. Wait a few minutes and try again.',
+          'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'The apiKey in the page is wrong.'
+        }[c] || 'Sign-in failed.';
+        showMsg('login-msg', 'err', esc(why) + ' (' + esc(c) + ')');
+      })
       .then(function () { btn.disabled = false; btn.textContent = 'Sign In'; });
   });
   var lo = document.querySelectorAll('.logout-btn');
@@ -485,7 +509,7 @@ function route() {
 }
 </script>
 <script>
-(function () {
+(function () { try {
 
 var field = $('lv-field'), panel = $('lv-panel'), hidden = $('r-level');
 if (FB_ERROR) showMsg('r-msg', 'err', esc(FB_ERROR));
@@ -522,8 +546,8 @@ $('r-submit').addEventListener('click', async function () {
   }
 });
 
-})();
-(function () {
+} catch (err) { window.dispatchEvent(new ErrorEvent('error', {message: err.message})); } })();
+(function () { try {
 
 var current = null;
 
@@ -613,8 +637,8 @@ $('q-download').addEventListener('click', function () {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 });
 
-})();
-(function () {
+} catch (err) { window.dispatchEvent(new ErrorEvent('error', {message: err.message})); } })();
+(function () { try {
 
 var stream = null, scanning = false, video, canvas, ctx, busy = false, all = [], loaded = false;
 $('s-max').textContent = MAX_TICKET;
@@ -810,7 +834,7 @@ $('reset-btn').addEventListener('click', async function () {
 
 window.stopScanCamera = stopCamera;
 
-})();
+} catch (err) { window.dispatchEvent(new ErrorEvent('error', {message: err.message})); } })();
 window.addEventListener('hashchange', route);
 route();
 </script>
