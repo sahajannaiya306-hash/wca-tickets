@@ -255,6 +255,7 @@ window.addEventListener('error', function (e) {
       <input id="login-pass" type="password" autocomplete="current-password"></div>
     <button class="btn" id="login-btn">Sign in</button>
     <div id="login-msg" aria-live="polite"></div>
+    <p style="margin:14px 0 0;font-size:11px;color:#8a9489;text-align:center;">build 3</p>
   </section>
 </main>
 
@@ -350,9 +351,9 @@ try {
   if (typeof firebase === 'undefined') throw new Error('The Firebase library could not load. Check the internet connection or turn off any ad blocker.');
   if (typeof FIREBASE_CONFIG === 'undefined') throw new Error('firebase-config.js is missing or wrong.');
   firebase.initializeApp(FIREBASE_CONFIG);
-  db = firebase.firestore();
-  db.settings({ experimentalForceLongPolling: true, merge: true });
   auth = firebase.auth();
+  db = firebase.firestore();
+  try { db.settings({ experimentalAutoDetectLongPolling: true, merge: true }); } catch (se) { if (window.console) console.warn(se); }
 } catch (e) {
   FB_ERROR = (e && e.message) ? e.message : 'Could not connect to Firebase.';
   if (window.console) console.error(FB_ERROR);
@@ -455,12 +456,29 @@ function setupLogin(onReady) {
       $('app-box').style.display = 'none';
     }
   });
-  $('login-btn').addEventListener('click', function () {
+  var signing = false;
+  function doLogin() {
+    if (signing) return;
+    var email = $('login-email').value.trim(), pass = $('login-pass').value;
+    if (!email || !pass) { showMsg('login-msg', 'err', 'Enter the email and the password.'); return; }
+    signing = true;
     var btn = $('login-btn');
     btn.disabled = true; btn.textContent = 'Signing in...';
-    auth.signInWithEmailAndPassword($('login-email').value.trim(), $('login-pass').value)
-      .then(function () { showMsg('login-msg', '', ''); })
+    showMsg('login-msg', 'ok', 'Signing in, please wait...');
+    var done = false;
+    function finish() { done = true; signing = false; btn.disabled = false; btn.textContent = 'Sign in'; }
+    var timer = setTimeout(function () {
+      if (done) return;
+      finish();
+      showMsg('login-msg', 'err', 'No reply from Firebase after 20 seconds. Check the internet, turn off any VPN or ad blocker, and try again. (timeout)');
+    }, 20000);
+    var p;
+    try { p = auth.signInWithEmailAndPassword(email, pass); }
+    catch (e) { clearTimeout(timer); finish(); showMsg('login-msg', 'err', esc((e && e.message) || 'Sign-in failed.') + ' (' + esc((e && e.code) || 'error') + ')'); return; }
+    p.then(function () { if (!done) { clearTimeout(timer); finish(); showMsg('login-msg', '', ''); } })
       .catch(function (e) {
+        if (done) return;
+        clearTimeout(timer); finish();
         var c = e && e.code ? e.code : 'error';
         var why = {
           'auth/wrong-password': 'The password is wrong.',
@@ -470,12 +488,14 @@ function setupLogin(onReady) {
           'auth/operation-not-allowed': 'Email/Password sign-in is not turned on in Firebase Authentication.',
           'auth/network-request-failed': 'No connection to Firebase. Check the internet connection.',
           'auth/too-many-requests': 'Too many attempts. Wait a few minutes and try again.',
-          'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'The apiKey in the page is wrong.'
+          'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'The apiKey in the page is wrong.',
+          'auth/invalid-api-key': 'The apiKey in the page is wrong.'
         }[c] || 'Sign-in failed.';
         showMsg('login-msg', 'err', esc(why) + ' (' + esc(c) + ')');
-      })
-      .then(function () { btn.disabled = false; btn.textContent = 'Sign In'; });
-  });
+      });
+  }
+  $('login-btn').addEventListener('click', doLogin);
+  $('login-pass').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') doLogin(); });
   var lo = document.querySelectorAll('.logout-btn');
   for (var i = 0; i < lo.length; i++) lo[i].addEventListener('click', function () { auth.signOut(); });
 }
