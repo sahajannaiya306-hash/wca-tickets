@@ -118,7 +118,7 @@ body.dark .hero::after{background:radial-gradient(circle at 12px 18px, var(--for
 .cam i:nth-of-type(4){bottom:16%; right:14%; border-left:0; border-top:0;}
 .manual{display:flex; gap:10px; align-items:stretch;}
 #result{position:fixed; inset:0; z-index:50; display:none; flex-direction:column; align-items:center; justify-content:center; padding:26px; text-align:center; color:#fff;}
-#result.good{background:#0B7A3B;} #result.bad{background:#AE2A21;} #result.dup{background:#B5741A;}
+#result.good{background:#0B7A3B;} #result.bad{background:#AE2A21;} #result.dup{background:#AE2A21;}
 #result .big{font-family:'Fraunces',Georgia,serif; font-size:36px; font-weight:700;}
 #result .who{font-size:28px; font-weight:700; margin-top:18px; word-break:break-word;}
 #result .meta{font-size:17px; margin-top:10px; line-height:1.7; opacity:.96;}
@@ -255,7 +255,7 @@ window.addEventListener('error', function (e) {
       <input id="login-pass" type="password" autocomplete="current-password"></div>
     <button class="btn" id="login-btn">Sign in</button>
     <div id="login-msg" aria-live="polite"></div>
-    <p style="margin:14px 0 0;font-size:11px;color:#8a9489;text-align:center;">build 3</p>
+    <p style="margin:14px 0 0;font-size:11px;color:#8a9489;text-align:center;">build 5</p>
   </section>
 </main>
 
@@ -273,12 +273,6 @@ window.addEventListener('error', function (e) {
       </div>
       <div id="a-msg" aria-live="polite"></div>
 
-      <div class="field" style="margin-top:24px;"><label for="m-ticket">No QR? Enter the ticket number</label>
-        <div class="manual">
-          <input class="num" id="m-ticket" placeholder="Ticket No." inputmode="numeric" maxlength="4">
-          <button class="btn small" id="m-go">Check in</button>
-        </div>
-      </div>
     </section>
     <p class="note"><a href="#" class="logout-btn">Sign out</a></p>
   </main>
@@ -663,7 +657,7 @@ $('q-download').addEventListener('click', function () {
 var stream = null, scanning = false, video, canvas, ctx, busy = false, all = [], loaded = false;
 $('s-max').textContent = MAX_TICKET;
 
-setupLogin(function () { loggedIn = true; applyChrome(); });
+setupLogin(function () { loggedIn = true; applyChrome(); try { if ($('a-start').style.display !== 'none') $('a-start').click(); } catch (e) {} });
 if (auth) auth.onAuthStateChanged(function (u) {
   if (!u) { loggedIn = false; applyChrome(); stopCamera(); loaded = false; }
 });
@@ -755,7 +749,7 @@ async function checkIn(raw) {
     var meta = 'Ticket No. ' + esc(d.ticket) + '<br>Herbalife ID: ' + esc(d.hlid) + '<br>' + esc(d.level) + (d.club ? '<br>Club: ' + esc(d.club) : '') + '<br>Mobile: ' + esc(d.mobile);
     if (result.dup) {
       var when = d.checkedInAt && d.checkedInAt.toDate ? d.checkedInAt.toDate().toLocaleString('en-IN') : '';
-      return showResult('dup', 'Already checked in', esc(d.name), meta + (when ? '<br>Earlier at ' + esc(when) : ''));
+      return showResult('dup', 'ALREADY SCANNED - DO NOT ENTER', esc(d.name), meta + (when ? '<br>Earlier at ' + esc(when) : ''));
     }
     showResult('good', 'Welcome', esc(d.name), meta);
     if (loaded) { loaded = false; }
@@ -764,8 +758,6 @@ async function checkIn(raw) {
     showResult('bad', 'Could not verify', 'Try again', 'Check the internet connection and that you are signed in as the admin. (' + esc(e && e.code ? e.code : 'error') + ')');
   }
 }
-$('m-go').addEventListener('click', function () { var t = $('m-ticket').value; $('m-ticket').value = ''; checkIn(t); });
-$('m-ticket').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('m-go').click(); });
 
 /* ---------- dashboard ---------- */
 function ts(v) { return v && v.toDate ? v.toDate() : null; }
