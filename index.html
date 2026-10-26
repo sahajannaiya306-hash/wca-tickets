@@ -194,9 +194,9 @@ window.addEventListener('error', function (e) {
       <input class="num" id="r-mobile" placeholder="10-digit mobile number" inputmode="tel" autocomplete="tel"></div>
 
     <div class="row">
-      <div class="field"><label for="r-club">Club code <small>(optional)</small></label>
-        <input id="r-club" placeholder="Club code" autocomplete="off"></div>
-      <div class="field"><label for="r-sponsor">Sponsor <small>(optional)</small></label>
+      <div class="field"><label for="r-club">Club code *</label>
+        <input class="num" id="r-club" placeholder="Club code (numbers)" inputmode="numeric" pattern="[0-9]*" maxlength="10" autocomplete="off"></div>
+      <div class="field"><label for="r-sponsor">Sponsor *</label>
         <input id="r-sponsor" placeholder="Sponsor name" autocomplete="off"></div>
     </div>
 
@@ -255,7 +255,7 @@ window.addEventListener('error', function (e) {
       <input id="login-pass" type="password" autocomplete="current-password"></div>
     <button class="btn" id="login-btn">Sign in</button>
     <div id="login-msg" aria-live="polite"></div>
-    <p style="margin:14px 0 0;font-size:11px;color:#8a9489;text-align:center;">build 6</p>
+    <p style="margin:14px 0 0;font-size:11px;color:#8a9489;text-align:center;">build 7</p>
   </section>
 </main>
 
@@ -389,15 +389,17 @@ async function registerTicket(d) {
   var hlid = normHl(d.hlid);
   var name = String(d.name || '').trim().replace(/\s+/g, ' ');
   var mobile = normMobile(d.mobile);
-  var club = String(d.club || '').trim();
+  var club = String(d.club || '').replace(/\D/g, '');
   var sponsor = String(d.sponsor || '').trim();
   var level = d.level;
 
-  if (!ticket || !hlid || !name || !mobile || !level) return { ok: false, msg: 'Please fill in all required fields (*).' };
+  if (!ticket || !hlid || !name || !mobile || !level || !club || !sponsor) return { ok: false, msg: 'Please fill in all required fields (*).' };
   if (!/^[1-9][0-9]{0,3}$/.test(ticket) || Number(ticket) > MAX_TICKET) return { ok: false, msg: 'Invalid ticket number. Enter a number between 1 and ' + MAX_TICKET + '.' };
   if (!/^[0-9]{10}$/.test(mobile)) return { ok: false, msg: 'Please enter a valid 10-digit mobile number.' };
   if (!/^[A-Z0-9]{3,20}$/.test(hlid)) return { ok: false, msg: 'Please enter a valid Herbalife ID (letters and numbers only).' };
   if (name.length < 2 || name.length > 80) return { ok: false, msg: 'Please enter your full name.' };
+  if (!/^[0-9]{1,10}$/.test(club)) return { ok: false, msg: 'Please enter the club code (numbers only).' };
+  if (sponsor.length < 2 || sponsor.length > 80) return { ok: false, msg: 'Please enter the sponsor name.' };
   if (LEVELS.indexOf(level) < 0) return { ok: false, msg: 'Please select a level.' };
 
   if (!db) return { ok: false, msg: FB_ERROR };
@@ -544,6 +546,7 @@ field.addEventListener('click', function () {
   field.classList.toggle('open', !open);
 });
 
+$('r-club').addEventListener('input', function () { this.value = this.value.replace(/\D/g, ''); });
 $('r-submit').addEventListener('click', async function () {
   var btn = $('r-submit');
   btn.disabled = true; btn.textContent = 'Saving...';
