@@ -255,7 +255,7 @@ window.addEventListener('error', function (e) {
       <input id="login-pass" type="password" autocomplete="current-password"></div>
     <button class="btn" id="login-btn">Sign in</button>
     <div id="login-msg" aria-live="polite"></div>
-    <p style="margin:14px 0 0;font-size:11px;color:#8a9489;text-align:center;">build 10</p>
+    <p style="margin:14px 0 0;font-size:11px;color:#8a9489;text-align:center;">build 7</p>
   </section>
 </main>
 
@@ -502,28 +502,24 @@ var loggedIn = false, currentPage = 'register';
 var HERO = {
   register: ['Wellness Coach Academy', 'Register your ticket to receive your entry pass.'],
   qr: ['Wellness Coach Academy', 'Get your entry pass with the mobile number you registered.'],
-  scan: ['Entry check-in', 'For organizers. Sign in to scan passes at the gate.'],
-  dash: ['Registrations', 'Sign in to see who has registered, search and manage entries.']
+  scan: ['Entry check-in', 'For organizers. Sign in to scan passes and see live numbers.']
 };
 function applyChrome() {
   $('hero-title').textContent = HERO[currentPage][0];
   $('hero-sub').textContent = HERO[currentPage][1];
-  var adm = currentPage === 'scan' || currentPage === 'dash';
-  $('public-tabs').style.display = adm ? 'none' : 'inline-flex';
-  $('app-tabs').style.display = 'none';
+  $('public-tabs').style.display = currentPage === 'scan' ? 'none' : 'inline-flex';
+  $('app-tabs').style.display = (currentPage === 'scan' && loggedIn) ? 'inline-flex' : 'none';
   $('nav-register').classList.toggle('on', currentPage === 'register');
   $('nav-qr').classList.toggle('on', currentPage === 'qr');
-  document.body.classList.toggle('dark', adm && !loggedIn);
-  document.title = (currentPage === 'scan' ? 'Check-in' : currentPage === 'dash' ? 'Registrations' : currentPage === 'qr' ? 'My QR pass' : 'Register') + ' - Wellness Coach Academy';
+  document.body.classList.toggle('dark', currentPage === 'scan' && !loggedIn);
+  document.title = (currentPage === 'scan' ? 'Check-in' : currentPage === 'qr' ? 'My QR pass' : 'Register') + ' - Wellness Coach Academy';
 }
 function route() {
   var h = (location.hash || '').replace('#', '').toLowerCase();
-  var next = (h === 'qr' || h === 'scan' || h === 'dash') ? h : 'register';
+  var next = (h === 'qr' || h === 'scan') ? h : 'register';
   if (currentPage === 'scan' && next !== 'scan' && window.stopScanCamera) window.stopScanCamera();
   currentPage = next;
-  var holder = (next === 'dash') ? 'scan' : next;
-  ['register', 'qr', 'scan'].forEach(function (p) { $('page-' + p).style.display = p === holder ? 'block' : 'none'; });
-  if ((next === 'scan' || next === 'dash') && window.setAdminView) window.setAdminView(next);
+  ['register', 'qr', 'scan'].forEach(function (p) { $('page-' + p).style.display = p === next ? 'block' : 'none'; });
   applyChrome();
   window.scrollTo(0, 0);
 }
@@ -664,7 +660,7 @@ $('q-download').addEventListener('click', function () {
 var stream = null, scanning = false, video, canvas, ctx, busy = false, all = [], loaded = false;
 $('s-max').textContent = MAX_TICKET;
 
-setupLogin(function () { loggedIn = true; applyChrome(); window.setAdminView(currentPage); });
+setupLogin(function () { loggedIn = true; applyChrome(); try { if ($('a-start').style.display !== 'none') $('a-start').click(); } catch (e) {} });
 if (auth) auth.onAuthStateChanged(function (u) {
   if (!u) { loggedIn = false; applyChrome(); stopCamera(); loaded = false; }
 });
@@ -675,13 +671,10 @@ function show(view) {
   $('view-dash').style.display = view === 'dash' ? 'block' : 'none';
   $('tab-scan').classList.toggle('on', view === 'scan');
   $('tab-dash').classList.toggle('on', view === 'dash');
-  if (view === 'dash') { stopCamera(); if (!loaded && loggedIn) $('rows').innerHTML = '<tr><td colspan="10">Press Refresh to load the list. (Each load uses one read per registration from the free daily limit, so load only when needed.)</td></tr>'; }
+  if (view === 'dash') { stopCamera(); if (!loaded) load(); }
 }
-window.setAdminView = function (page) {
-  var v = page === 'dash' ? 'dash' : 'scan';
-  show(v);
-  if (v === 'scan' && loggedIn) { try { if ($('a-start').style.display !== 'none') $('a-start').click(); } catch (e) {} }
-};
+$('tab-scan').addEventListener('click', function () { show('scan'); });
+$('tab-dash').addEventListener('click', function () { show('dash'); });
 
 /* ---------- feedback ---------- */
 function beep(freq, ms) {
@@ -713,28 +706,15 @@ function stopCamera() {
 $('a-stop').addEventListener('click', stopCamera);
 $('a-start').addEventListener('click', function () {
   showMsg('a-msg', '', '');
-  video = $('a-video'); canvas = $('a-canvas'); ctx = canvas.getContext('2d', { willReadFrequently: true });
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showMsg('a-msg', 'err', 'This browser cannot open the camera. On iPhone use Safari (or Chrome) and open the link normally, not inside another app.');
-    return;
-  }
-  navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } })
-    .catch(function () { return navigator.mediaDevices.getUserMedia({ audio: false, video: true }); })
+  video = $('a-video'); canvas = $('a-canvas'); ctx = canvas.getContext('2d');
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
     .then(function (s) {
-      stream = s;
-      video.setAttribute('playsinline', ''); video.setAttribute('webkit-playsinline', ''); video.muted = true;
-      video.srcObject = stream;
+      stream = s; video.srcObject = stream;
       $('a-cam').style.display = 'block'; $('a-start').style.display = 'none';
-      var pr = video.play();
-      if (pr && pr.catch) pr.catch(function () {
-        showMsg('a-msg', 'err', 'Tap the camera picture once to start it.');
-        video.addEventListener('click', function once() { video.removeEventListener('click', once); video.play(); showMsg('a-msg', '', ''); });
-      });
       scanning = true; requestAnimationFrame(tick);
     })
     .catch(function (err) {
-      $('a-start').style.display = 'block';
-      showMsg('a-msg', 'err', 'The camera could not start (' + esc(err && err.name) + '). Allow camera access for this site (iPhone: Settings > Safari > Camera > Allow), then tap Start camera.');
+      showMsg('a-msg', 'err', 'The camera could not start (' + esc(err && err.name) + '). Allow camera access for this site in your browser settings, then try again.');
     });
 });
 var detector = null;
