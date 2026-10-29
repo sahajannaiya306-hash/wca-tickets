@@ -255,7 +255,7 @@ window.addEventListener('error', function (e) {
       <input id="login-pass" type="password" autocomplete="current-password"></div>
     <button class="btn" id="login-btn">Sign in</button>
     <div id="login-msg" aria-live="polite"></div>
-    <p style="margin:14px 0 0;font-size:11px;color:#8a9489;text-align:center;">build 9</p>
+    <p style="margin:14px 0 0;font-size:11px;color:#8a9489;text-align:center;">build 10</p>
   </section>
 </main>
 
@@ -675,7 +675,7 @@ function show(view) {
   $('view-dash').style.display = view === 'dash' ? 'block' : 'none';
   $('tab-scan').classList.toggle('on', view === 'scan');
   $('tab-dash').classList.toggle('on', view === 'dash');
-  if (view === 'dash') { stopCamera(); if (!loaded && loggedIn) load(); }
+  if (view === 'dash') { stopCamera(); if (!loaded && loggedIn) $('rows').innerHTML = '<tr><td colspan="10">Press Refresh to load the list. (Each load uses one read per registration from the free daily limit, so load only when needed.)</td></tr>'; }
 }
 window.setAdminView = function (page) {
   var v = page === 'dash' ? 'dash' : 'scan';
